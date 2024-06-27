@@ -1,0 +1,12 @@
+.idea
+.vscode/*
+node_modules/*
+invoicesLIV/*
+cypress/integration/examples/*
+cypress/screenshots/*
+cypress/test/*
+cypress/videos/*
+cypress/test/*
+cypress/fixtures/test.json
+cypress/integration/product_configuration/test_readPDF.spec.js
+debug.log*
