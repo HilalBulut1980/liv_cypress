@@ -1,0 +1,24 @@
+var configurator = require("../../../support/configurator_neg_plissee.js");
+
+var test =
+{
+    "name": "LIV-vs4s2_min_height_left",
+    "produkt": "/plissee/wabe-glow-2165",
+    "produktgruppe": "Plissees mit Sonderform",
+    "modell": "VS4 S2",
+    "befestigung": "Montage direkt vor dem Glas",
+    "system": "Cosiflor",
+    "breite": "1000",
+    "hoehe_links": "100",
+    "hoehe_rechts": "230",
+    "hoehe_rechts_new": "400",
+    "ausrichtung": "rechts",
+    "schienenfarbe": "Weiß",
+    "message": "Die rechte Höhe muss größer als oder gleich 300 mm sein."
+}
+
+describe('Test: configuration of neg Plissee test - VS4S2 min. height right 300', () => {
+
+    configurator.configure_neg_plissee(test)
+
+})

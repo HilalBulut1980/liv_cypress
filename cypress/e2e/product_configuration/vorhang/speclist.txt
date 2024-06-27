@@ -1,0 +1,13 @@
+cypress/e2e/product_configuration/vorhang/configure_gardine_forli_batist.spec.js
+cypress/e2e/product_configuration/vorhang/configure_gardine_forli_voile.spec.js
+cypress/e2e/product_configuration/vorhang/configure_gardine_modica_doppelt.spec.js
+cypress/e2e/product_configuration/vorhang/configure_gardine_modica_dreifach.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_cortina_oesen.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_cortinella_oesen_h160.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_cortinella_oesen_h215.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_cortinella_oesen_h245.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_golfo_bleistiftband.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_lauden_bleistiftband.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_margarite_oesen.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_viterbo_bleistiftband.spec.js
+cypress/e2e/product_configuration/vorhang/configure_vorhang_wella_oesen.spec.js

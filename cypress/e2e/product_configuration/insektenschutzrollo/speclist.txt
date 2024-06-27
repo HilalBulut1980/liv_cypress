@@ -1,0 +1,4 @@
+cypress/e2e/product_configuration/insektenschutzrollo/configure_insektenschutzrollo_fensterrahmen.spec.js
+cypress/e2e/product_configuration/insektenschutzrollo/configure_insektenschutzrollo_hauswand.spec.js
+cypress/e2e/product_configuration/insektenschutzrollo/configure_insektenschutzrollo_klebemontage.spec.js
+cypress/e2e/product_configuration/insektenschutzrollo/configure_insektenschutzrollo_mauer.spec.js

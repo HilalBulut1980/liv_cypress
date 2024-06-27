@@ -1,0 +1,4 @@
+cypress/e2e/product_configuration/serviceprodukt/configure_serviceprodukt_aenderung_breite.spec.js
+cypress/e2e/product_configuration/serviceprodukt/configure_serviceprodukt_aenderung_schnurlaenge.spec.js
+cypress/e2e/product_configuration/serviceprodukt/configure_serviceprodukt_laengere_fuehrungsschnuere.spec.js
+cypress/e2e/product_configuration/serviceprodukt/configure_serviceprodukt_schnur_ersetzen.spec.js

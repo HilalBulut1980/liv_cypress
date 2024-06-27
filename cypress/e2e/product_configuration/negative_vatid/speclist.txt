@@ -1,0 +1,4 @@
+cypress/e2e/product_configuration/negative_vatid/configure_neg_vatid_at_bg_gast_new_address.spec.js
+cypress/e2e/product_configuration/negative_vatid/configure_neg_vatid_at_gast_same_address.spec.js
+cypress/e2e/product_configuration/negative_vatid/configure_neg_vatid_at_it_gast_new_address.spec.js
+cypress/e2e/product_configuration/negative_vatid/configure_neg_vatid_sk_gast_same_address.spec.js

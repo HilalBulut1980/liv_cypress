@@ -1,0 +1,7 @@
+cypress/e2e/product_configuration/paypal/configure_cosiflor_giropay.spec.js
+cypress/e2e/product_configuration/paypal/configure_cosiflorplissee_paypal.spec.js
+cypress/e2e/product_configuration/paypal/configure_doppelrollo_kreditkarte.spec.js
+cypress/e2e/product_configuration/paypal/configure_jalousie_sofort.spec.js
+cypress/e2e/product_configuration/paypal/configure_plissee_paypalexpress.spec.js
+cypress/e2e/product_configuration/paypal/configure_raffrollo_rechnung.spec.js
+cypress/e2e/product_configuration/paypal/configure_rollo_sepa.spec.js
