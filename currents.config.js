@@ -1,6 +1,6 @@
 // currents.config.js
 
 module.exports = {
-    projectId: "",
-    recordKey: "",
+    projectId: "m5fgRw",
+    recordKey: "wknitDb4o3wFrKeK",
   };
