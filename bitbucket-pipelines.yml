@@ -1,0 +1,754 @@
+
+image: atlassian/default-image:4
+
+definitions:
+
+  .install-script: 
+  - &install-script |
+    apt-get -y update
+    apt-get upgrade -y google-chrome-stable
+    CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev npx cypress install --force
+    npm install cypress-cloud 
+    npm install json-logic-js  
+    mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+  
+  specgroup_variables: &variable-list  # available specgroups
+    - "*"
+    - CUSTOM
+    - doppelrollo
+    - fliegengitter
+    - gutschein
+    - holzjalousie
+    - insektenschutzrollo
+    - jalousie
+    - kissenhuellen_einzeln
+    - kissenhuellen_set
+    - muster
+    - negative_doppelrollo
+    - negative_fliegengitter
+    - negative_holzjalousie
+    - negative_insektenschutzrollo
+    - negative_jalousie
+    - negative_paypal
+    - negative_plissee_basis
+    - negative_plissee_cosiflor
+    - negative_raffrollo
+    - negative_rollo
+    - negative_schiebegardine
+    - negative_vatid
+    - negative_vorhang
+    - paypal
+    - plissee_basis
+    - plissee_cosiflor
+    - rabattcodes
+    - raffrollo
+    - rollo
+    - schiebegardinen
+    - serviceprodukt 
+    - special_tests
+    - user 
+    - vat_id 
+    - vorhang 
+    - zubehoer_plissee 
+    - zubehoer_rollo 
+    - zubehoer_schiebegardinen 
+    - zubehoer_vorhang
+    
+
+
+  multiple_specgroup-variables: &multiple-variable-list  # I M P O R T A N T --> NEVER include specgroup "CUSTOM and "*" into this list" !!
+    - doppelrollo
+    - fliegengitter
+    - gutschein
+    - holzjalousie
+    - insektenschutzrollo
+    - jalousie
+    - kissenhuellen_einzeln
+    - kissenhuellen_set
+    - muster
+    - negative_doppelrollo
+    - negative_fliegengitter
+    - negative_holzjalousie
+    - negative_insektenschutzrollo
+    - negative_jalousie
+    - negative_paypal
+    - negative_plissee_basis
+    - negative_plissee_cosiflor
+    - negative_raffrollo
+    - negative_rollo
+    - negative_schiebegardine
+    - negative_vatid
+    - negative_vorhang
+    - paypal
+    - plissee_basis
+    - plissee_cosiflor
+    - rabattcodes
+    - raffrollo
+    - rollo
+    - schiebegardinen
+    - serviceprodukt 
+    - special_tests
+    - user 
+    - vat_id 
+    - vorhang 
+    - zubehoer_plissee 
+    - zubehoer_rollo 
+    - zubehoer_schiebegardinen 
+    - zubehoer_vorhang
+    - NONE
+
+
+
+  steps:
+
+# job definition for generating current speclist
+    - step: &generate-speclist
+        name: update speclist
+        max-time: 5
+        script: 
+          - echo "Committing new specfiles"
+          - bash list-specfiles.sh cypress/e2e/product_configuration 
+          - git add cypress/e2e/product_configuration/*
+          # Use [skip ci] when you are pushing back to your repository. This will stop pipelines triggering on the new commit and avoid an eternal loop!
+          - git commit -m "Auto-generate speclists [skip ci]"
+          - git push
+        condition:
+          changesets:
+            includePaths:
+              - "cypress/e2e/product_configuration/*/*"
+
+
+
+# job definition for handling chosen specgroups
+    - step: &assign-specfiles
+        name: handle chosen specgroups
+        max-time: 5
+        script:
+          - echo $TERM
+          - export TERM=xterm
+          - echo $TERM
+          - mkdir cypress/e2e/SPECS
+          - >- 
+            if [ "$SPECGROUP" != "NONE" ] && [ "$SPECGROUP" != "CUSTOM" ] ; then
+               if [ "$SPECGROUP" != "*" ]; then
+                  cp -r cypress/e2e/product_configuration/"$SPECGROUP"/* cypress/e2e/SPECS
+                  countspecs=$(ls cypress/e2e/SPECS | grep spec.js | wc -l)
+                  echo "Total specfiles: $countspecs"
+               else 
+                 while read line; do
+                   cp -r cypress/e2e/product_configuration/"$line"/* cypress/e2e/SPECS
+                   done < <(ls cypress/e2e/product_configuration)
+                   countspecs=$(ls cypress/e2e/SPECS | grep spec.js | wc -l)
+                   echo "Total specfiles: $countspecs"
+               fi
+            fi
+          - >-
+            if [ "$SPECGROUP" = "CUSTOM" ] ; then 
+               while read -r line; do 
+                 echo "$line"
+                 cp "$line" cypress/e2e/SPECS
+                done  < custom-speclist.txt
+               countspecs=$(ls cypress/e2e/SPECS | grep spec.js | wc -l)
+               echo "Total specfiles: $countspecs"
+            fi
+          - >-
+            if [ "$SPECGROUP_2" != "NONE" ] && [ "$SPECGROUP_2" != "CUSTOM" ] && [ "$SPECGROUP_2" != "$SPECGROUP" ] && [ "$SPECGROUP" != "*" ] && [ "$SPECGROUP_2" != "*" ] ; then 
+               cp -r cypress/e2e/product_configuration/"$SPECGROUP_2"/. cypress/e2e/SPECS
+               countspecs=$(ls cypress/e2e/SPECS | grep spec.js | wc -l)
+               echo "Total specfiles: $countspecs"
+            fi 
+          - >-
+            if [ "$SPECGROUP_3" != "NONE" ] && [ "$SPECGROUP_3" != "CUSTOM" ] && [ "$SPECGROUP_3" != "$SPECGROUP" ] && [ "$SPECGROUP_3" != "$SPECGROUP_2" ] && [ "$SPECGROUP" != "*" ] && [ "$SPECGROUP_3" != "*" ] ; then 
+               cp -r cypress/e2e/product_configuration/"$SPECGROUP_3"/. cypress/e2e/SPECS
+               countspecs=$(ls cypress/e2e/SPECS | grep spec.js | wc -l)
+               echo "Total specfiles: $countspecs"
+            fi 
+          - ls -A cypress/e2e/SPECS/*.js
+        artifacts: # defining the artifacts to be passed to each future step.
+          - cypress/e2e/SPECS/**      
+
+
+
+    # job definition for running spec tests against production
+    - step: &run-specs-production-no-order
+        name: production NO order parallel
+        max-time: 35
+        image: currentsdev/cypress-included:12.0.1
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          # we do not run sepa tests on production due geolocation issues
+          - rm -f cypress/e2e/product_configuration/SPECS/configure_rollo_sepa.spec.js
+          - rm -f cypress/e2e/product_configuration/SPECS/configure_plissee_paypalexpress.spec.js
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://www.....de --env placeOrder=false --parallel --group "Production" --ci-build-id $BITBUCKET_BUILD_NUMBER --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "production-all-tests-NO-order" 
+
+
+
+    # job definition for running spec tests against production
+    - step: &run-specs-production-no-order-sequential
+        name: production NO order sequential
+        max-time: 120
+        image: currentsdev/cypress-included:12.0.1
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          # we do not run sepa tests on production due geolocation issues
+          - rm -f cypress/e2e/product_configuration/SPECS/configure_rollo_sepa.spec.js
+          - rm -f cypress/e2e/product_configuration/SPECS/configure_plissee_paypalexpress.spec.js
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://www.....de --env placeOrder=false --group "Production"  --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "production-all-tests-NO-order" 
+
+
+
+    # job definition for running spec tests in parallel against stage
+    - step: &run-specs-stage-no-order
+        name: stage NO order parallel
+        max-time: 45
+        image: currentsdev/cypress-included:12.0.1
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://stage.....de --env applyRules=false,placeOrder=false --parallel --group "stage" --ci-build-id $BITBUCKET_BUILD_NUMBER --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "stage-all-tests-NO-order" 
+
+
+
+    # job definition for running spec tests sequentially against stage
+    - step: &run-specs-stage-no-order-sequential
+        name: stage NO order sequential
+        max-time: 120
+        image: currentsdev/cypress-included:12.0.1
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://stage.....de --env applyRules=false,placeOrder=false --group "stage" --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "stage-all-tests-NO-order" 
+
+
+
+    # job definition for running spec tests in parallel against stage
+    - step: &run-specs-stage-with-order
+        name: stage with order parallel
+        max-time: 90
+        image: currentsdev/cypress-included:12.0.1
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://stage.....de --env applyRules=false,placeOrder=true --parallel --group "stage" --ci-build-id $BITBUCKET_BUILD_NUMBER --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "stage-all-tests-WITH-order" 
+
+
+
+    # job definition for running spec tests sequentially against stage
+    - step: &run-specs-stage-with-order-sequential
+        name: stage with order sequential
+        max-time: 120
+        image: currentsdev/cypress-included:12.0.1
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://stage.....de --env applyRules=false,placeOrder=true --group "stage" --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "stage-all-tests-WITH-order" 
+
+
+
+    # job definition for running spec tests in parallel against ....de
+    - step: &run-specs-livhakan-no-order
+        name: ....de NO order
+        max-time: 35
+        image: currentsdev/cypress-included:12.0.1
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://....de/ --env applyRules=false,placeOrder=false --parallel --group "livhakan" --ci-build-id $BITBUCKET_BUILD_NUMBER --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "livhakan-all-tests-NO-order" 
+
+
+
+    # job definition for running spec tests in parallel against ....de
+    - step: &run-specs-livhakan-with-order
+        name: ....de with order
+        max-time: 60
+        image: currentsdev/cypress-included:12.0.1 
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://....de/ --env backend_url="/admin" --env applyRules=false,placeOrder=true --parallel --group "livhakan" --ci-build-id $BITBUCKET_BUILD_NUMBER --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "livhakan-all-tests-WITH-order" 
+
+
+
+   # job definition for running spec tests in parallel against ...-test.de
+    - step: &run-specs-liv-no-order
+        name: ...-test.de NO order
+        max-time: 35
+        image: currentsdev/cypress-included:12.0.1
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://...-test.de/ --env applyRules=false,placeOrder=false --parallel --group "liv" --ci-build-id $BITBUCKET_BUILD_NUMBER --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "liv-all-tests-NO-order" 
+
+
+
+    # job definition for running spec tests in parallel against ...-test.de
+    - step: &run-specs-liv-with-order
+        name: ...-test.de with order
+        max-time: 60
+        image: currentsdev/cypress-included:12.0.1 
+        script:
+          - apt-get -y update
+          - apt-get upgrade -y google-chrome-stable
+          - npm install cypress-cloud 
+          - npm install json-logic-js  
+          - mv cypress/e2e/SPECS cypress/e2e/product_configuration/
+          - npx cypress cache clear
+          - export CYPRESS_DOWNLOAD_MIRROR=https://cy-cdn.currents.dev
+          - npx cypress install
+          - ls -A cypress/e2e/product_configuration/SPECS
+          - npx cypress-cloud --config baseUrl=https://...-test.de/ --env backend_url="/admin" --env applyRules=false,placeOrder=true --parallel --group "liv" --ci-build-id $BITBUCKET_BUILD_NUMBER --record  --spec "cypress/e2e/product_configuration/SPECS/*" --browser chrome --tag "liv-all-tests-WITH-order" 
+
+
+
+clone:
+  depth: 1
+
+
+pipelines:
+  default:
+    - step: *generate-speclist
+
+
+
+  custom: # Pipelines that are triggered manually
+    production-NO-order: # The name that is displayed in the list in the Bitbucket
+      - variables:
+          - name: SPECGROUP
+            default: "*"
+            allowed-values: *variable-list
+          - name: SPECGROUP_2
+            default: "NONE"
+            allowed-values: *multiple-variable-list     
+          - name: SPECGROUP_3
+            default: "NONE"
+            allowed-values: *multiple-variable-list             
+      - step: *assign-specfiles              
+      - parallel:
+        # run N steps in parallel
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+          - step: *run-specs-production-no-order
+
+
+
+    production-NO-order-sequential: 
+      - variables:
+          - name: SPECGROUP
+            default: "*"
+            allowed-values: *variable-list
+          - name: SPECGROUP_2
+            default: "NONE"
+            allowed-values: *multiple-variable-list     
+          - name: SPECGROUP_3
+            default: "NONE"
+            allowed-values: *multiple-variable-list              
+      - step: *assign-specfiles              
+      - step: *run-specs-production-no-order-sequential
+
+
+
+
+    stage-NO-order:
+        - variables:
+            - name: SPECGROUP
+              default: "*"
+              allowed-values: *variable-list
+            - name: SPECGROUP_2
+              default: "NONE"
+              allowed-values: *multiple-variable-list     
+            - name: SPECGROUP_3
+              default: "NONE"
+              allowed-values: *multiple-variable-list    
+        - step: *assign-specfiles     
+        - parallel:
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+            - step: *run-specs-stage-no-order
+ 
+
+
+    stage-NO-order-sequential:
+        - variables:
+            - name: SPECGROUP
+              default: "*"
+              allowed-values: *variable-list
+            - name: SPECGROUP_2
+              default: "NONE"
+              allowed-values: *multiple-variable-list     
+            - name: SPECGROUP_3
+              default: "NONE"
+              allowed-values: *multiple-variable-list    
+        - step: *assign-specfiles     
+        - step: *run-specs-stage-no-order-sequential
+
+
+
+    stage-with-order: 
+      - variables:
+          - name: SPECGROUP
+            default: "*"
+            allowed-values: *variable-list
+          - name: SPECGROUP_2
+            default: "NONE"
+            allowed-values: *multiple-variable-list     
+          - name: SPECGROUP_3
+            default: "NONE"
+            allowed-values: *multiple-variable-list    
+      - step: *assign-specfiles   
+      - parallel:
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+          - step: *run-specs-stage-with-order
+
+
+
+    stage-with-order-sequential: 
+      - variables:
+          - name: SPECGROUP
+            default: "*"
+            allowed-values: *variable-list
+          - name: SPECGROUP_2
+            default: "NONE"
+            allowed-values: *multiple-variable-list     
+          - name: SPECGROUP_3
+            default: "NONE"
+            allowed-values: *multiple-variable-list    
+      - step: *assign-specfiles   
+      - step: *run-specs-stage-with-order-sequential
+
+
+
+    livhakan-NO-order:
+      - variables:
+          - name: TESTBRANCH
+            default: ""
+          - name: SPECGROUP
+            default: "*"
+            allowed-values: *variable-list
+          - name: SPECGROUP_2
+            default: "NONE"
+            allowed-values: *multiple-variable-list     
+          - name: SPECGROUP_3
+            default: "NONE"
+            allowed-values: *multiple-variable-list    
+          - name: IMPORT_MINIDUMP
+            default: "nein"
+            allowed-values: 
+              - "nein"
+              - "ja"              
+      - step: *assign-specfiles           
+      - step:
+          script:
+            - if [ -z "$TESTBRANCH" ] ; then TESTBRANCH="CURRENT" ; fi          
+            - echo "Es wird OHNE Bestellabgabe auf ....de gegen $TESTBRANCH getestet."
+            - pipe: atlassian/ssh-run:0.61
+              variables:
+                SSH_USER: 'delphinu'
+                SERVER: 'delphinus-test.de'
+                MODE: 'command'
+                COMMAND: './minidump_liv/04_scripts/expect.sh livhakan $TESTBRANCH $IMPORT_MINIDUMP'
+          after-script:
+            - echo $BITBUCKET_EXIT_CODE
+      - parallel:
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+          - step: *run-specs-livhakan-no-order
+
+
+
+    livhakan-with-order:
+      - variables:
+          - name: TESTBRANCH
+            default: ""
+          - name: SPECGROUP
+            default: "*"
+            allowed-values: *variable-list
+          - name: SPECGROUP_2
+            default: "NONE"
+            allowed-values: *multiple-variable-list     
+          - name: SPECGROUP_3
+            default: "NONE"
+            allowed-values: *multiple-variable-list    
+          - name: IMPORT_MINIDUMP
+            default: "nein"
+            allowed-values: 
+              - "nein"
+              - "ja"          
+      - step: *assign-specfiles              
+      - step:
+          script:
+             - 
+             - if [ -z "$TESTBRANCH" ] ; then TESTBRANCH="CURRENT" ; fi
+             - echo "Es wird MIT Bestellabgabe auf ....de gegen $TESTBRANCH getestet."
+             - pipe: atlassian/ssh-run:0.61
+               variables:
+                 SSH_USER: 'delphinu'
+                 SERVER: 'delphinus-test.de'
+                 MODE: 'command'
+                 COMMAND: './minidump_liv/04_scripts/expect.sh livhakan $TESTBRANCH $IMPORT_MINIDUMP'
+          after-script:
+            - echo $BITBUCKET_EXIT_CODE
+      - parallel:
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+          - step: *run-specs-livhakan-with-order
+
+       
+
+    ...-NO-order:
+      - variables:
+          - name: TESTBRANCH
+            default: ""
+          - name: SPECGROUP
+            default: "*"
+            allowed-values: *variable-list
+          - name: SPECGROUP_2
+            default: "NONE"
+            allowed-values: *multiple-variable-list     
+          - name: SPECGROUP_3
+            default: "NONE"
+            allowed-values: *multiple-variable-list    
+          - name: IMPORT_MINIDUMP
+            default: "nein"
+            allowed-values: 
+              - "nein"
+              - "ja"              
+      - step: *assign-specfiles        
+      - step:
+          script:
+            - if [ -z "$TESTBRANCH" ] ; then TESTBRANCH="CURRENT" ; fi          
+            - echo "Es wird OHNE Bestellabgabe auf ...-test.de gegen $TESTBRANCH getestet."
+            - pipe: atlassian/ssh-run:0.61
+              variables:
+                SSH_USER: 'delphinu'
+                SERVER: 'delphinus-test.de'
+                MODE: 'command'
+                COMMAND: './minidump_liv/04_scripts/expect.sh liv $TESTBRANCH $IMPORT_MINIDUMP'
+          after-script:
+            - echo $BITBUCKET_EXIT_CODE
+      - parallel:
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+          - step: *run-specs-liv-no-order
+
+
+
+    ...-with-order:
+      - variables:
+          - name: TESTBRANCH
+            default: ""
+          - name: SPECGROUP
+            default: "*"
+            allowed-values: *variable-list
+          - name: SPECGROUP_2
+            default: "NONE"
+            allowed-values: *multiple-variable-list     
+          - name: SPECGROUP_3
+            default: "NONE"
+            allowed-values: *multiple-variable-list    
+          - name: IMPORT_MINIDUMP
+            default: "nein"
+            allowed-values: 
+              - "nein"
+              - "ja"          
+      - step: *assign-specfiles             
+      - step:
+          script:
+             - if [ -z "$TESTBRANCH" ] ; then TESTBRANCH="CURRENT" ; fi
+             - echo "Die Specgruppe $SPECGROUP wird MIT Bestellabgabe auf ...-test.de gegen $TESTBRANCH getestet."
+             - pipe: atlassian/ssh-run:0.61
+               variables:
+                 SSH_USER: 'delphinu'
+                 SERVER: 'delphinus-test.de'
+                 MODE: 'command'
+                 COMMAND: './minidump_liv/04_scripts/expect.sh liv $TESTBRANCH $IMPORT_MINIDUMP'
+          after-script:
+            - echo $BITBUCKET_EXIT_CODE
+      - parallel:
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
+          - step: *run-specs-liv-with-order
